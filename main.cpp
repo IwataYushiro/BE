@@ -1,16 +1,13 @@
 #include "DxLib.h"
 #define _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
 #include "ServerDatabase.h"
+#include "Pattern.h"
 #include <array>
 
 // ウィンドウのタイトルに表示する文字列
-const char TITLE[] = "stopWatch";
+const char TITLE[] = "AttackGame";
 
-// ウィンドウ横幅
-const int WIN_WIDTH = 600;
-
-// ウィンドウ縦幅
-const int WIN_HEIGHT = 400;
+void Reset();
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine,
 	_In_ int nCmdShow) {
@@ -31,20 +28,43 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	SetWindowSizeExtendRate(1.0);
 
 	// 画面の背景色を設定する
-	SetBackgroundColor(0x00, 0x00, 0x00);
+	SetBackgroundColor(0x1f, 0x1e, 0x33);
 
 	// DXlibの初期化
 	if (DxLib_Init() == -1) { return -1; }
 
 	// (ダブルバッファ)描画先グラフィック領域は裏面を指定
 	SetDrawScreen(DX_SCREEN_BACK);
+	// 画像などのリソースデータの変数宣言と読み込み
+	int playerG;
+	int playerbulletG;
+
+	playerG = LoadGraph("player.png");
+	playerbulletG = LoadGraph("playerbullet.png");
 
 	// ゲームループで使う変数の宣言
 	// 変数宣言
-	float startTime;		// スタート時刻を記憶しておく
-	float resultCount;		//結果カウント
+	//自機
+	Pattern* pattern = new Pattern();
+
+	Pattern::Obj player = { 16.0f,300.0f,600.0f,7.0f,7.0f,true,0.0f };
+	Pattern::Bullet playerBullet[Pattern::BULLET_MAX_NUM] = {};
+	for (int i = 0; i < Pattern::BULLET_MAX_NUM; i++)
+	{
+		playerBullet[i] = { 8.0f,0.0f,0.0f,-10.0f,false };
+	}
+
+	Pattern::Obj enemy = { 50.0f,50.0f,50.0f,0.1f,0.1f,true,0.0f };
+	pattern->SetEnemyLife(10);
+
+	//敵と自機弾の当たり判定
+
+	//int startTime;		// スタート時刻を記憶しておく
+	int resultCount;		//結果カウント
 	unsigned int color = GetColor(255, 255, 255);	// カラーデータの格納
 	int space = 0;
+
+	const int MAX_SCORE = 10000;
 	int score = 0; // スコア
 	float progressTime = 0; // スタートからの経過時間
 
@@ -81,46 +101,78 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		//---------  ここからプログラムを記述  ----------//
 
 		// 更新処理
-		if (keys[KEY_INPUT_SPACE] && !oldkeys[KEY_INPUT_SPACE])
-		{
-			space++;
-		}
+		//このラインからはUIゾーンなのでいっそここにボックスUIおいてもいいや
+		DrawBox(GAME_LINE, 0, WIN_WIDTH, WIN_HEIGHT, GetColor(0xff, 0xff, 0xff), TRUE);
+
 		switch (scene)
 		{
 		case START:
+			if (keys[KEY_INPUT_SPACE] && !oldkeys[KEY_INPUT_SPACE])space++;
 			if (space % Num == Time)
 			{
-				startTime = GetNowCount();
+				//リセット
+				player = { 16.0f,300.0f,600.0f,7.0f,7.0f,true,0.0f };
+				for (int i = 0; i < Pattern::BULLET_MAX_NUM; i++)
+				{
+					playerBullet[i] = { 8.0f,0.0f,0.0f,-10.0f,false };
+				}
+				enemy = { 50.0f,50.0f,50.0f,0.1f,0.1f,true,0.0f };
+				pattern->SetEnemyLife(10);
 				scene = Time;
 				break;
 			}
-
-			DrawFormatString(250, 200, color, "0.000\n");
-			DrawFormatString(250, 250, color, "SPACE START ");
 			break;
 
 		case Time:
-			progressTime = GetNowCount() - startTime;
-			resultCount = progressTime / 1000.0f;
+			//敵挙動
+			pattern->AttackPattern(enemy);
+			//自機移動
+			pattern->PlayerMove(player, keys);
+			//弾発射
+			if (keys[KEY_INPUT_X] == true && oldkeys[KEY_INPUT_X] == false)
+			{
+				for (int i = 0; i < Pattern::BULLET_MAX_NUM; i++)
+				{
+					if (playerBullet[i].isShot == false)
+					{
+						playerBullet[i].isShot = true;
+						playerBullet[i].posX = player.posX + player.rad;
+						playerBullet[i].posY = player.posY;//弾yの初期位
+						break;
+					}
+				}
+			}
+			//弾移動
+			for (int i = 0; i < Pattern::BULLET_MAX_NUM; i++)
+			{
+				pattern->PlayerBulletMove(playerBullet[i]);
+			}
+			//当たり判定
+			for (int i = 0; i < Pattern::BULLET_MAX_NUM; i++)
+			{
+				pattern->IsHitBulletToEnemy(playerBullet[i], enemy);
+			}
+			//タイム
+			progressTime++;
+			resultCount = MAX_SCORE - progressTime;
 			//上限
-			if (progressTime > 1000.0f * 12.0f)
+			if (resultCount < 0)
 			{
 				score = 0; // バーストしたらスコアは0
 				scene = PostRanking;
 				break;
 			}
-			//スペースでストップ
+			if (pattern->GetEnemyLife() <= 0)space++;
+			//倒したら集計
 			if (space % Num == PostRanking)
 			{
-				score = -abs(progressTime - 10000) + 10000; // 10秒に近いほど高得点
+				score = resultCount; // 早く倒すほど高得点
 				// ランキングに記録する
 				auto serverStatusCode = Post(url, score).wait();
 				scene = PostRanking;
 				break;
 			}
-
-			DrawFormatString(250, 200, color, "now %.3f\n", progressTime / 1000.0f);
-			DrawFormatString(250, 250, color, "SPACE STOP ");
+			DrawFormatString(650, 50, GetColor(0, 0, 0), "now %d", resultCount);
 			break;
 
 		case PostRanking:
@@ -135,11 +187,51 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 				ranking[i] = array[i].at(U("score")).as_integer();
 			}
 
+			if (keys[KEY_INPUT_SPACE] && !oldkeys[KEY_INPUT_SPACE])space++;
+
 			if (space % Num == START)
 			{
 				scene = START;
 				break;
 			}
+			break;
+		}
+		
+
+		// 描画処理
+		
+		switch (scene)
+		{
+		case START:
+			DrawFormatString(250, 200, color, "ATTACKGAME");
+
+			DrawFormatString(250, 250, color, "SPACE START ");
+			break;
+
+		case Time:
+		//オブジェクト関係
+		if (player.alive == true)
+		{
+			DrawGraph(player.posX, player.posY, playerG, TRUE);
+		}
+
+		if (enemy.alive == true)
+		{
+			DrawCircle(enemy.posX, enemy.posY, enemy.rad, GetColor(0, 0, 255), TRUE);
+		}
+		//自機弾
+		for (int i = 0; i < Pattern::BULLET_MAX_NUM; i++)
+		{
+			if (playerBullet[i].isShot == true)
+			{
+				DrawGraph(playerBullet[i].posX - playerBullet[i].rad,
+					playerBullet[i].posY, playerbulletG, TRUE);
+			}
+		}
+		
+			break;
+
+		case PostRanking:
 
 			for (int i = 0; i < ranking.size(); i++)
 			{
@@ -147,8 +239,18 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 			}
 			DrawFormatString(250, 200, color, "result %.3f   score %d\n", resultCount, score);
 			DrawFormatString(250, 250, color, "SPACE RESET ");
+
 			break;
 		}
+		
+		//以下デバック用
+		DrawLine(GAME_LINE, 0, GAME_LINE, WIN_HEIGHT, GetColor(255, 0, 0));
+		//操作
+
+		DrawString(650, 100, "アローキーで操作　　", GetColor(0, 0, 0));
+		DrawString(650, 150, "スペースキーで弾発射", GetColor(0, 0, 0));
+
+		DrawFormatString(700, 660, GetColor(0, 0, 0), ("Enemy HP %d"), pattern->GetEnemyLife());
 
 		//---------  ここまでにプログラムを記述  ---------//
 		// (ダブルバッファ)裏面
@@ -167,6 +269,10 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 			break;
 		}
 	}
+	//お片付け
+	delete pattern;
+	DeleteGraph(playerG);
+	DeleteGraph(playerbulletG);
 	// Dxライブラリ終了処理
 	DxLib_End();
 
