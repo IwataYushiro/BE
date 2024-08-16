@@ -66,7 +66,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 	const int MAX_SCORE = 10000;
 	int score = 0; // スコア
-	float progressTime = 0; // スタートからの経過時間
+	int progressTime = 0; // スタートからの経過時間
 
 	enum Scene
 	{
@@ -84,7 +84,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	char oldkeys[256] = { 0 };
 
 	std::wstring url = L"http://localhost:3000/scores/";
-	std::array<int, 5> ranking{};
+	std::array<int, 10> ranking{};
 
 	// ゲームループ
 	while (true) {
@@ -118,6 +118,10 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 				}
 				enemy = { 50.0f,50.0f,50.0f,0.1f,0.1f,true,0.0f };
 				pattern->SetEnemyLife(10);
+
+				score = 0; // スコア
+				progressTime = 0; // スタートからの経過時間
+				
 				scene = Time;
 				break;
 			}
@@ -129,7 +133,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 			//自機移動
 			pattern->PlayerMove(player, keys);
 			//弾発射
-			if (keys[KEY_INPUT_X] == true && oldkeys[KEY_INPUT_X] == false)
+			if (keys[KEY_INPUT_SPACE] == true && oldkeys[KEY_INPUT_SPACE] == false)
 			{
 				for (int i = 0; i < Pattern::BULLET_MAX_NUM; i++)
 				{
@@ -237,7 +241,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 			{
 				DrawFormatString(100, 200 + i * 20, color, "%d: %05d", i + 1, ranking[i]);
 			}
-			DrawFormatString(250, 200, color, "result %.3f   score %d\n", resultCount, score);
+			DrawFormatString(250, 200, color, "result %d\n", score);
 			DrawFormatString(250, 250, color, "SPACE RESET ");
 
 			break;
