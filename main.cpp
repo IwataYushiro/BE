@@ -71,7 +71,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	enum Scene
 	{
 		START,
-		Time,
+		Game,
 		PostRanking,
 		Num
 	};
@@ -108,7 +108,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		{
 		case START:
 			if (keys[KEY_INPUT_SPACE] && !oldkeys[KEY_INPUT_SPACE])space++;
-			if (space % Num == Time)
+			if (space % Num == Game)
 			{
 				//リセット
 				player = { 16.0f,300.0f,600.0f,7.0f,7.0f,true,0.0f };
@@ -122,12 +122,12 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 				score = 0; // スコア
 				progressTime = 0; // スタートからの経過時間
 				
-				scene = Time;
+				scene = Game;
 				break;
 			}
 			break;
 
-		case Time:
+		case Game:
 			//敵挙動
 			pattern->AttackPattern(enemy);
 			//自機移動
@@ -215,7 +215,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 			DrawFormatString(250, 250, color, "SPACE START ");
 			break;
 
-		case Time:
+		case Game:
 		//オブジェクト関係
 		if (player.alive == true)
 		{
