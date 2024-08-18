@@ -83,7 +83,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	// 1ループ(フレーム)前のキーボード情報
 	char oldkeys[256] = { 0 };
 
-	std::wstring url = L"http://localhost:3000/scores/";
+	std::wstring url = L"https://attackgame.vercel.app/scores/";
 	std::array<int, 10> ranking{};
 
 	// ゲームループ
@@ -173,6 +173,17 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 				score = resultCount; // 早く倒すほど高得点
 				// ランキングに記録する
 				auto serverStatusCode = Post(url, score).wait();
+
+				// ランキングを取得する
+				auto task = Get<json::value>(url);
+				const json::value j = task.get();
+				auto array = j.as_array();
+
+				for (int i = 0; i < array.size(); i++)
+				{
+					ranking[i] = array[i].at(U("score")).as_integer();
+				}
+
 				scene = PostRanking;
 				break;
 			}
@@ -181,15 +192,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 		case PostRanking:
 
-			// ランキングを取得する
-			auto task = Get<json::value>(url);
-			const json::value j = task.get();
-			auto array = j.as_array();
-
-			for (int i = 0; i < array.size(); i++)
-			{
-				ranking[i] = array[i].at(U("score")).as_integer();
-			}
+			
 
 			if (keys[KEY_INPUT_SPACE] && !oldkeys[KEY_INPUT_SPACE])space++;
 
